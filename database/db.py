@@ -1,11 +1,14 @@
 import sqlite3
 from datetime import datetime
+from pathlib import Path
+
+DB_PATH = Path(__file__).resolve().parent / "emailshield.db"
 
 
 def create_database():
 
     conn = sqlite3.connect(
-        "emailshield.db"
+        DB_PATH
     )
 
     cursor = conn.cursor()
@@ -83,7 +86,7 @@ def save_email(
 ):
 
     conn = sqlite3.connect(
-        "emailshield.db"
+        DB_PATH
     )
 
     cursor = conn.cursor()
@@ -143,7 +146,7 @@ def save_email(
 def get_all_emails():
 
     conn = sqlite3.connect(
-        "emailshield.db"
+        DB_PATH
     )
 
     cursor = conn.cursor()
@@ -162,7 +165,7 @@ def get_all_emails():
 def search_emails(keyword):
 
     conn = sqlite3.connect(
-        "emailshield.db"
+        DB_PATH
     )
 
     cursor = conn.cursor()

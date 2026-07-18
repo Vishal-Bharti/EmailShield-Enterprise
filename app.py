@@ -1,4 +1,18 @@
+import os
+from pathlib import Path
+
 import streamlit as st
+
+from config import get_secret, mask_secret
+
+VIRUSTOTAL_API_KEY = get_secret("VIRUSTOTAL_API_KEY")
+ABUSEIPDB_API_KEY = get_secret("ABUSEIPDB_API_KEY")
+
+if VIRUSTOTAL_API_KEY:
+    os.environ["VIRUSTOTAL_API_KEY"] = VIRUSTOTAL_API_KEY
+
+if ABUSEIPDB_API_KEY:
+    os.environ["ABUSEIPDB_API_KEY"] = ABUSEIPDB_API_KEY
 
 from analyzers.header_parser import parse_eml
 from analyzers.auth_analyzer import analyze_authentication
@@ -49,9 +63,7 @@ from reports.pdf_report import (
     generate_pdf_report
 )
 
-from analyzers.routing_analyzer import (
-    analyze_routing
-)
+
 from analyzers.routing_analyzer import (
     analyze_routing,
     get_originating_ip
@@ -60,6 +72,13 @@ from analyzers.routing_analyzer import (
 create_database()
 
 st.title("EmailShield Enterprise")
+st.caption(
+    f"API key status: VirusTotal={mask_secret(VIRUSTOTAL_API_KEY)}, "
+    f"AbuseIPDB={mask_secret(ABUSEIPDB_API_KEY)}"
+)
+
+if not VIRUSTOTAL_API_KEY and not ABUSEIPDB_API_KEY:
+    st.info("No API keys configured. Add them in Streamlit Secrets or environment variables.")
 
 uploaded_file = st.file_uploader(
     "Upload EML File",
@@ -81,6 +100,13 @@ if uploaded_file:
     headers, msg = parse_eml(
         uploaded_file
     )
+
+    sender = headers.get("from", "Unknown")
+    subject = headers.get("subject", "Unknown")
+    to_addr = headers.get("to", "Unknown")
+    reply_to = headers.get("reply_to", "Unknown")
+    return_path = headers.get("return_path", "Unknown")
+    date_value = headers.get("date", "Unknown")
 
     progress.progress(10)
     routing_data = analyze_routing(
@@ -178,17 +204,17 @@ if uploaded_file:
 
     ips = extract_ips(msg)
 
-
     public_ips = get_public_ips(
         ips
     )
 
+    public_ip = public_ips[0] if public_ips else "Unknown"
+
     ip_info = None
 
-    if public_ips:
-
+    if public_ip != "Unknown":
         ip_info = check_ip_reputation(
-            public_ips[0]
+            public_ip
         )
     status.write(
     "🌍 Checking IP Reputation..."
@@ -203,31 +229,33 @@ if uploaded_file:
     # -------------------------
 
     sender_domain = extract_domain(
-        headers["from"]
-    )
+        sender
+    ) if sender and sender != "Unknown" else "Unknown"
 
-    domain_info = get_domain_info(
-        sender_domain
-    )
+    domain_info = None
+    domain_rep = None
+    domain_age = None
+
+    if sender_domain and sender_domain != "Unknown":
+        domain_info = get_domain_info(
+            sender_domain
+        )
+        domain_rep = check_domain_reputation(
+            sender_domain
+        )
     status.write(
     "🌐 Performing Domain Intelligence..."
     )
 
     progress.progress(75)
 
-    domain_rep = check_domain_reputation(
-        sender_domain
-    )
     status.write(
     "🔥 Checking VirusTotal..."
     )
 
     progress.progress(85)
 
-    domain_age = None
-
-    if domain_info:
-
+    if domain_info and domain_info.get("created"):
         domain_age = calculate_domain_age(
             domain_info["created"]
         )
@@ -380,7 +408,7 @@ if uploaded_file:
 
         Sender:
 
-        {headers["from"]}
+        {sender}
 
         Domain:
         {sender_domain}
@@ -400,14 +428,13 @@ if uploaded_file:
         st.write(f"• {rec}")
 
 
+    report_path = Path(__file__).resolve().parent / "incident_report.pdf"
+
     if st.button(
     "Generate PDF Report"
         ):
         generate_pdf_report(
-
-
-            "incident_report.pdf",
-
+            str(report_path),
             headers,
             score,
             attack_type,
@@ -426,7 +453,7 @@ if uploaded_file:
         )
 
         with open(
-                "incident_report.pdf",
+                report_path,
                 "rb"
             ) as pdf_file:
 
@@ -452,32 +479,32 @@ if uploaded_file:
 
     st.write(
         "From:",
-        headers["from"]
+        sender
     )
 
     st.write(
         "To:",
-        headers["to"]
+        to_addr
     )
 
     st.write(
         "Subject:",
-        headers["subject"]
+        subject
     )
 
     st.write(
         "Date:",
-        headers["date"]
+        date_value
     )
 
     st.write(
         "Reply-To:",
-        headers["reply_to"]
+        reply_to
     )
 
     st.write(
         "Return-Path:",
-        headers["return_path"]
+        return_path
     )
 
     # =========================
@@ -849,36 +876,25 @@ if uploaded_file:
     # =========================
 
     save_email(
-
-    headers["from"],
-    headers["subject"],
-
-    auth["spf"],
-    auth["dkim"],
-    auth["dmarc"],
-
-    public_ips[0] if public_ips else "Unknown",
-
-    sender_domain,
-
-    domain_age,
-
-    domain_info["registrar"] if domain_info else "Unknown",
-
-    ip_info["country"] if ip_info else "Unknown",
-
-    ip_info["isp"] if ip_info else "Unknown",
-
-    ip_info["abuse_score"] if ip_info else 0,
-
-    score,
-    spam_result["spam_score"],
-    1 if spam_result["is_spam"] else 0,
-    attack_type,
-
-    "HIGH CONFIDENCE PHISHING"
-    if score >= 70
-    else "SUSPICIOUS EMAIL"
-    if score >= 40
-    else "LOW RISK"
-)
+        sender,
+        subject,
+        auth["spf"],
+        auth["dkim"],
+        auth["dmarc"],
+        public_ip,
+        sender_domain,
+        domain_age,
+        domain_info.get("registrar", "Unknown") if domain_info else "Unknown",
+        ip_info.get("country", "Unknown") if ip_info else "Unknown",
+        ip_info.get("isp", "Unknown") if ip_info else "Unknown",
+        ip_info.get("abuse_score", 0) if ip_info else 0,
+        score,
+        spam_result["spam_score"],
+        1 if spam_result["is_spam"] else 0,
+        attack_type,
+        "HIGH CONFIDENCE PHISHING"
+        if score >= 70
+        else "SUSPICIOUS EMAIL"
+        if score >= 40
+        else "LOW RISK"
+    )
