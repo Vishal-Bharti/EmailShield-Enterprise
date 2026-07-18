@@ -1,0 +1,7 @@
+streamlit==1.59.2
+pandas==3.0.3
+altair==6.2.2
+requests==2.34.2
+urllib3==2.7.0
+python-whois==0.9.6
+reportlab==5.0.0
