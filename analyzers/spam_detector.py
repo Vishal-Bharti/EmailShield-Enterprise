@@ -79,7 +79,11 @@ def analyze_spam(email_body, headers=None, auth=None, iocs=None, attachments=Non
             reasons.append("X-Spam-Flag is set")
 
         x_mailer = str(headers.get("x-mailer", "") or "").lower()
-        if x_mailer and any(token in x_mailer for token in ["mail", "smtp", "php", "python"]):
+        # NOTE: matching a generic word like "mail" here would flag most
+        # legitimate clients (e.g. "Apple Mail", "Outlook Mail"). Only
+        # match known bulk-mailer / scripting signatures instead.
+        suspicious_mailer_tokens = ["phpmailer", "swaks", "python-smtplib", "sendblaster", "mass mailer"]
+        if x_mailer and any(token in x_mailer for token in suspicious_mailer_tokens):
             spam_score += 3
             reasons.append("Unusual X-Mailer header")
 

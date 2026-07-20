@@ -5,7 +5,8 @@ def calculate_risk_score(
     domain_rep,
     attachments,
     routing_data,
-    origin_ip
+    origin_ip,
+    ip_rep_vt=None
 ):
 
     score = 0
@@ -106,6 +107,28 @@ def calculate_risk_score(
 
             reasons.append(
                 "Suspicious IP Reputation"
+            )
+
+    # Second source - VirusTotal's independent multi-engine votes.
+    # Scored separately from AbuseIPDB so a flag from either source
+    # still raises the score, rather than one source's data silently
+    # overriding the other's.
+    if ip_rep_vt and ip_rep_vt.get("malicious", -1) != -1:
+
+        if ip_rep_vt["malicious"] > 0:
+
+            score += 20
+
+            reasons.append(
+                f"IP Flagged Malicious by VirusTotal ({ip_rep_vt['malicious']} engines)"
+            )
+
+        elif ip_rep_vt["suspicious"] > 0:
+
+            score += 10
+
+            reasons.append(
+                "IP Flagged Suspicious by VirusTotal"
             )
 
     # =========================

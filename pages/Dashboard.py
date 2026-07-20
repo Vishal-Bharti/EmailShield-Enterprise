@@ -1,6 +1,8 @@
 import streamlit as st
 import sqlite3
 import pandas as pd
+
+from pathlib import Path
 import altair as alt
 
 st.set_page_config(
@@ -14,8 +16,10 @@ st.title("📊 EmailShield Enterprise Dashboard")
 # DATABASE
 # =====================================
 
+DB_PATH = Path(__file__).resolve().parent.parent / "database" / "emailshield.db"
+
 conn = sqlite3.connect(
-    "emailshield.db"
+    DB_PATH
 )
 
 df = pd.read_sql_query(

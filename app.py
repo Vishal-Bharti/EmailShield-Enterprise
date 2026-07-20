@@ -28,7 +28,8 @@ from intelligence.whois_lookup import (
 )
 
 from intelligence.ip_reputation import (
-    check_ip_reputation
+    check_ip_reputation,
+    check_ip_reputation_virustotal
 )
 
 from intelligence.domain_reputation import (
@@ -311,9 +312,13 @@ if uploaded_file:
     public_ip = public_ips[0] if public_ips else "Unknown"
 
     ip_info = None
+    ip_rep_vt = None
 
     if public_ip != "Unknown":
         ip_info = check_ip_reputation(
+            public_ip
+        )
+        ip_rep_vt = check_ip_reputation_virustotal(
             public_ip
         )
     status.write(
@@ -381,7 +386,8 @@ if uploaded_file:
         domain_rep,
         attachments,
         routing_data,
-        origin_ip
+        origin_ip,
+        ip_rep_vt=ip_rep_vt
     )
     status.write(
     "🎯 Calculating Threat Score..."
@@ -825,6 +831,42 @@ if uploaded_file:
             st.success(
             "✅ Clean IP Reputation"
     )
+
+    if ip_rep_vt:
+
+        st.subheader(
+            "IP Reputation (VirusTotal)"
+        )
+
+        if ip_rep_vt["malicious"] == -1:
+
+            st.warning(
+                "VirusTotal IP Reputation Unavailable"
+            )
+
+        else:
+
+            st.write(
+                "Malicious:",
+                ip_rep_vt["malicious"]
+            )
+
+            st.write(
+                "Suspicious:",
+                ip_rep_vt["suspicious"]
+            )
+
+            st.write(
+                "Harmless:",
+                ip_rep_vt["harmless"]
+            )
+
+            if ip_rep_vt["malicious"] > 0:
+
+                st.error(
+                    "⚠ IP flagged malicious by VirusTotal"
+                )
+
     
     # =========================
 # ATTACHMENT INTELLIGENCE
