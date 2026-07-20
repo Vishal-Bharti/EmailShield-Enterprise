@@ -71,12 +71,37 @@ from analyzers.routing_analyzer import (
     get_originating_ip
 )
 
+from ui.theme import inject_theme, render_splash, shield_orb_html
+
+st.set_page_config(
+    page_title="EmailShield Enterprise",
+    page_icon="🛡",
+    layout="wide"
+)
+
+inject_theme()
+render_splash()
+
 create_database()
 
-st.title("EmailShield Enterprise")
-st.caption(
-    f"API key status: VirusTotal={mask_secret(VIRUSTOTAL_API_KEY)}, "
-    f"AbuseIPDB={mask_secret(ABUSEIPDB_API_KEY)}"
+vt_chip_class = "on" if VIRUSTOTAL_API_KEY else "off"
+abuse_chip_class = "on" if ABUSEIPDB_API_KEY else "off"
+
+st.markdown(
+    f"""
+    <div class="es-hero">
+        <div class="es-hero-mark">🛡</div>
+        <div>
+            <p class="es-hero-title">EmailShield Enterprise</p>
+            <p class="es-hero-sub">Email forensics &amp; phishing threat intelligence</p>
+        </div>
+        <div class="es-chip-row">
+            <div class="es-chip {vt_chip_class}">VirusTotal: {mask_secret(VIRUSTOTAL_API_KEY)}</div>
+            <div class="es-chip {abuse_chip_class}">AbuseIPDB: {mask_secret(ABUSEIPDB_API_KEY)}</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 if not VIRUSTOTAL_API_KEY and not ABUSEIPDB_API_KEY:
@@ -91,6 +116,15 @@ if uploaded_file:
     status = st.status(
     "🚀 Starting Analysis...",
     expanded=True
+    )
+
+    status.markdown(
+        shield_orb_html(
+            score=None,
+            title="Scanning email",
+            desc="Parsing headers, routing, attachments, and threat intel"
+        ),
+        unsafe_allow_html=True
     )
 
     progress = st.progress(0)
@@ -370,7 +404,9 @@ if uploaded_file:
         auth,
         domain_age,
         iocs,
-        score
+        score,
+        attachments=attachments,
+        domain_rep=domain_rep
     )
     recommendations = get_recommendations(
     score
@@ -385,6 +421,20 @@ if uploaded_file:
 
         "Threat Assessment"
         )
+
+    if score >= 70:
+        verdict_desc = "High confidence phishing indicators detected"
+    elif score >= 40:
+        verdict_desc = "Some suspicious indicators - review recommended"
+    else:
+        verdict_desc = "No major threat indicators detected"
+
+    st.markdown(
+        shield_orb_html(score=score, desc=verdict_desc),
+        unsafe_allow_html=True
+    )
+
+    st.write("")
 
     st.metric(
 
@@ -511,7 +561,9 @@ if uploaded_file:
             domain_age,
             ip_info,
             iocs,
-            attachments
+            attachments,
+            domain_rep=domain_rep,
+            spam_result=spam_result
         )
 
         st.success(
