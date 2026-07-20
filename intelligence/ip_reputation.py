@@ -1,15 +1,23 @@
 import requests
 import time
-import urllib3
 
-urllib3.disable_warnings(
-    urllib3.exceptions.InsecureRequestWarning
-)
+from config import get_secret
 
-API_KEY = "a5f76132498868cd87c9c1cb10665c5a7e5f3819b506039031da905b30a3b3874fa5e701bbfd7b72"
+API_KEY = get_secret("ABUSEIPDB_API_KEY")
 
 
 def check_ip_reputation(ip):
+
+    if not API_KEY:
+
+        print("AbuseIPDB API key not configured, skipping lookup.")
+
+        return {
+            "abuse_score": 0,
+            "country": "Unknown",
+            "isp": "Unknown",
+            "usage_type": "Unknown"
+        }
 
     url = "https://api.abuseipdb.com/api/v2/check"
 
@@ -35,8 +43,7 @@ def check_ip_reputation(ip):
                 url,
                 headers=headers,
                 params=params,
-                timeout=5,
-                verify=False
+                timeout=5
             )
 
             if response.status_code == 200:

@@ -1,4 +1,6 @@
 import os
+import re
+import html
 from pathlib import Path
 
 import streamlit as st
@@ -136,17 +138,57 @@ if uploaded_file:
     # Extract Email Body
     # -------------------------
 
-    email_body = ""
+    def html_to_text(html_content):
+        """Strip tags and decode entities so IOC/spam analysis has
+        something to work with even when there's no text/plain part."""
+
+        # Drop script/style blocks entirely
+        text = re.sub(r"(?is)<(script|style).*?>.*?(</\1>)", " ", html_content)
+        # Turn common block/line-break tags into newlines
+        text = re.sub(r"(?i)<(br|/p|/div|/tr|/li)\s*/?>", "\n", text)
+        # Strip remaining tags
+        text = re.sub(r"(?s)<[^>]+>", " ", text)
+        text = html.unescape(text)
+        # Collapse excess whitespace
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\n\s*\n+", "\n", text)
+        return text.strip()
+
+    def extract_html_links(html_content):
+        """Pull raw href URLs out of anchor tags - the displayed link text
+        can differ from the real destination, a classic phishing trick."""
+
+        return re.findall(r'href=["\']([^"\']+)["\']', html_content, re.IGNORECASE)
+
+    plain_text_body = ""
+    html_body = ""
 
     if msg.is_multipart():
 
         for part in msg.walk():
 
-            if part.get_content_type() == "text/plain":
+            content_type = part.get_content_type()
+
+            if content_type == "text/plain":
 
                 try:
 
-                    email_body += (
+                    plain_text_body += (
+                        part.get_payload(
+                            decode=True
+                        ).decode(
+                            errors="ignore"
+                        )
+                    )
+
+                except:
+                    pass
+
+            elif content_type == "text/html":
+
+                try:
+
+                    html_body += (
                         part.get_payload(
                             decode=True
                         ).decode(
@@ -159,18 +201,42 @@ if uploaded_file:
 
     else:
 
+        content_type = msg.get_content_type()
+
         try:
 
-            email_body = (
-                msg.get_payload(
-                    decode=True
-                ).decode(
-                    errors="ignore"
-                )
+            payload = msg.get_payload(
+                decode=True
+            ).decode(
+                errors="ignore"
             )
+
+            if content_type == "text/html":
+                html_body = payload
+            else:
+                plain_text_body = payload
 
         except:
             pass
+
+    # Prefer plain text (cleaner for regex matching); fall back to
+    # HTML-stripped text if no plain-text part exists, so email_body is
+    # never silently empty for HTML-only phishing emails.
+    if plain_text_body.strip():
+        email_body = plain_text_body
+    elif html_body.strip():
+        email_body = html_to_text(html_body)
+    else:
+        email_body = ""
+
+    # Surface raw href URLs from HTML too, so extract_iocs catches the
+    # real destination even when the visible link text looks harmless.
+    if html_body:
+
+        html_links = extract_html_links(html_body)
+
+        if html_links:
+            email_body += "\n" + "\n".join(html_links)
 
     # -------------------------
     # IOC Extraction

@@ -1,15 +1,22 @@
 import requests
-import urllib3
 import time
 
-urllib3.disable_warnings(
-    urllib3.exceptions.InsecureRequestWarning
-)
+from config import get_secret
 
-API_KEY = "8ce682be18d8c79ccb57a43e27e75e1a5504f4ce0f85b13be2124b3677983a0f"
+API_KEY = get_secret("VIRUSTOTAL_API_KEY")
 
 
 def check_domain_reputation(domain):
+
+    if not API_KEY:
+
+        print("VirusTotal API key not configured, skipping lookup.")
+
+        return {
+            "malicious": -1,
+            "suspicious": -1,
+            "harmless": -1
+        }
 
     url = f"https://www.virustotal.com/api/v3/domains/{domain}"
 
@@ -28,8 +35,7 @@ def check_domain_reputation(domain):
             response = requests.get(
                 url,
                 headers=headers,
-                timeout=5,
-                verify=False
+                timeout=5
             )
 
             print(
