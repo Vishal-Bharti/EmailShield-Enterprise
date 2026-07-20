@@ -815,8 +815,13 @@ if uploaded_file:
                     )
 
             st.write(
-                "File Type:",
+                "File Type (Declared):",
                 attachment["content_type"]
+            )
+
+            st.write(
+                "File Type (Detected from content):",
+                attachment.get("detected_file_type", "UNKNOWN")
             )
 
             st.write(
@@ -836,6 +841,35 @@ if uploaded_file:
 
                 st.error(
                     f"⚠ Potentially Dangerous Attachment: {filename}"
+                )
+
+            if attachment.get("extension_spoofed"):
+
+                st.error(
+                    f"🚨 Extension Spoofing: file claims to be "
+                    f"'{filename.rsplit('.', 1)[-1]}' but its content is "
+                    f"actually {attachment.get('detected_file_type')}"
+                )
+
+            if attachment.get("double_extension"):
+
+                st.error(
+                    "🚨 Double Extension Trick Detected "
+                    "(e.g. invoice.pdf.exe)"
+                )
+
+            if attachment.get("bidi_override"):
+
+                st.error(
+                    "🚨 Unicode Filename Spoofing Detected "
+                    "(hidden right-to-left override character)"
+                )
+
+            if attachment.get("script_indicators"):
+
+                st.error(
+                    "🚨 Suspicious Script Content Detected: "
+                    + ", ".join(attachment["script_indicators"])
                 )
 
             st.divider()

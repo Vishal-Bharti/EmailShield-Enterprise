@@ -24,7 +24,7 @@ def check_domain_reputation(domain):
         "x-apikey": API_KEY
     }
 
-    for attempt in range(1):
+    for attempt in range(2):
 
         try:
 
@@ -35,7 +35,7 @@ def check_domain_reputation(domain):
             response = requests.get(
                 url,
                 headers=headers,
-                timeout=5
+                timeout=10
             )
 
             print(

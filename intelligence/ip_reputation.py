@@ -31,7 +31,7 @@ def check_ip_reputation(ip):
         "maxAgeInDays": 90
     }
 
-    for attempt in range(1):
+    for attempt in range(2):
 
         try:
 
@@ -43,7 +43,7 @@ def check_ip_reputation(ip):
                 url,
                 headers=headers,
                 params=params,
-                timeout=5
+                timeout=10
             )
 
             if response.status_code == 200:

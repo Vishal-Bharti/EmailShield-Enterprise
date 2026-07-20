@@ -197,6 +197,43 @@ def calculate_risk_score(
                 f"Dangerous Attachment ({filename})"
             )
 
+        if attachment.get("extension_spoofed"):
+
+            score += 35
+
+            reasons.append(
+                f"Attachment Type Spoofing Detected - file content does not "
+                f"match its extension ({filename}, actual type: "
+                f"{attachment.get('detected_file_type')})"
+            )
+
+        if attachment.get("double_extension"):
+
+            score += 20
+
+            reasons.append(
+                f"Double Extension Trick Detected ({filename})"
+            )
+
+        if attachment.get("bidi_override"):
+
+            score += 30
+
+            reasons.append(
+                f"Unicode Filename Spoofing Detected ({filename})"
+            )
+
+        script_indicators = attachment.get("script_indicators") or []
+
+        if script_indicators:
+
+            score += 25
+
+            reasons.append(
+                f"Suspicious Script Content In Attachment ({filename}): "
+                f"{', '.join(script_indicators)}"
+            )
+
     # =========================
     # SCORE CAP
     # =========================
