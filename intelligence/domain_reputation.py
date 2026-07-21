@@ -24,18 +24,20 @@ def check_domain_reputation(domain):
         "x-apikey": API_KEY
     }
 
-    for attempt in range(2):
+    max_attempts = 3
+
+    for attempt in range(max_attempts):
 
         try:
 
             print(
-                f"VT Attempt {attempt + 1}"
+                f"VT Attempt {attempt + 1} of {max_attempts}"
             )
 
             response = requests.get(
                 url,
                 headers=headers,
-                timeout=10
+                timeout=5
             )
 
             print(
@@ -49,9 +51,13 @@ def check_domain_reputation(domain):
                     response.text
                 )
 
-                time.sleep(
-                    2 ** attempt
-                )
+                # 4xx errors (bad key, unknown domain, rate limit) won't
+                # be fixed by retrying - stop wasting API calls on them.
+                if 400 <= response.status_code < 500:
+                    break
+
+                if attempt < max_attempts - 1:
+                    time.sleep(2 ** attempt)
 
                 continue
 
@@ -83,9 +89,8 @@ def check_domain_reputation(domain):
                 e
             )
 
-            time.sleep(
-                2 ** attempt
-            )
+            if attempt < max_attempts - 1:
+                time.sleep(2 ** attempt)
 
     return {
         "malicious": -1,
